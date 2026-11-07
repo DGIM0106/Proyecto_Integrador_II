@@ -1,0 +1,298 @@
+CREATE DATABASE EcoRAEE_DB;
+GO
+
+USE EcoRAEE_DB;
+GO
+
+CREATE TABLE ORGANIZACION (
+    id_organizacion INT IDENTITY(1,1) NOT NULL,
+    ruc VARCHAR(13) NOT NULL,
+    razon_social VARCHAR(150) NOT NULL,
+    CONSTRAINT PK_ORGANIZACION PRIMARY KEY (id_organizacion),
+    CONSTRAINT UQ_ORGANIZACION_RUC UNIQUE (ruc),
+    CONSTRAINT CK_ORGANIZACION_RUC CHECK (LEN(ruc) = 13)
+);
+GO
+
+CREATE TABLE ROL (
+    id_rol INT IDENTITY(1,1) NOT NULL,
+    nombre_rol VARCHAR(50) NOT NULL,
+    CONSTRAINT PK_ROL PRIMARY KEY (id_rol),
+    CONSTRAINT UQ_ROL_NOMBRE UNIQUE (nombre_rol)
+);
+GO
+
+CREATE TABLE USUARIO (
+    id_usuario INT IDENTITY(1,1) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    correo VARCHAR(100) NOT NULL,
+    id_organizacion INT NOT NULL,
+    id_rol INT NOT NULL,
+    CONSTRAINT PK_USUARIO PRIMARY KEY (id_usuario),
+    CONSTRAINT UQ_USUARIO_CORREO UNIQUE (correo),
+    CONSTRAINT FK_USUARIO_ORGANIZACION FOREIGN KEY (id_organizacion) 
+        REFERENCES ORGANIZACION(id_organizacion),
+    CONSTRAINT FK_USUARIO_ROL FOREIGN KEY (id_rol) 
+        REFERENCES ROL(id_rol)
+);
+GO
+
+-- 4. TIPO_CENTRO
+CREATE TABLE TIPO_CENTRO (
+    id_tipo_centro INT IDENTITY(1,1) NOT NULL,
+    nombre_tipo VARCHAR(50) NOT NULL,
+    CONSTRAINT PK_TIPO_CENTRO PRIMARY KEY (id_tipo_centro),
+    CONSTRAINT UQ_TIPO_CENTRO_NOMBRE UNIQUE (nombre_tipo)
+);
+GO
+
+CREATE TABLE CENTRO (
+    id_centro INT IDENTITY(1,1) NOT NULL,
+    codigo_centro VARCHAR(20) NOT NULL,
+    nombre_centro VARCHAR(100) NOT NULL,
+    direccion VARCHAR(200) NOT NULL,
+    id_tipo_centro INT NOT NULL,
+    CONSTRAINT PK_CENTRO PRIMARY KEY (id_centro),
+    CONSTRAINT UQ_CENTRO_CODIGO UNIQUE (codigo_centro),
+    CONSTRAINT FK_CENTRO_TIPO FOREIGN KEY (id_tipo_centro) 
+        REFERENCES TIPO_CENTRO(id_tipo_centro)
+);
+GO
+
+CREATE TABLE CATEGORIA (
+    id_categoria INT IDENTITY(1,1) NOT NULL,
+    nombre_categoria VARCHAR(100) NOT NULL,
+    CONSTRAINT PK_CATEGORIA PRIMARY KEY (id_categoria),
+    CONSTRAINT UQ_CATEGORIA_NOMBRE UNIQUE (nombre_categoria)
+);
+GO
+
+CREATE TABLE CONDICION (
+    id_condicion INT IDENTITY(1,1) NOT NULL,
+    descripcion_condicion VARCHAR(100) NOT NULL,
+    CONSTRAINT PK_CONDICION PRIMARY KEY (id_condicion),
+    CONSTRAINT UQ_CONDICION_DESC UNIQUE (descripcion_condicion)
+);
+GO
+
+CREATE TABLE SOLICITUD (
+    id_solicitud INT IDENTITY(1,1) NOT NULL,
+    codigo_solicitud VARCHAR(30) NOT NULL,
+    fecha_solicitud DATETIME2 NOT NULL CONSTRAINT DF_SOLICITUD_FECHA DEFAULT SYSUTCDATETIME(),
+    estado_recoleccion VARCHAR(30) NOT NULL,
+    id_centro INT NOT NULL,
+    CONSTRAINT PK_SOLICITUD PRIMARY KEY (id_solicitud),
+    CONSTRAINT UQ_SOLICITUD_CODIGO UNIQUE (codigo_solicitud),
+    CONSTRAINT CK_SOLICITUD_ESTADO CHECK (estado_recoleccion IN ('Pendiente', 'Asignada', 'En Recoleccion', 'Finalizada')),
+    CONSTRAINT FK_SOLICITUD_CENTRO FOREIGN KEY (id_centro) 
+        REFERENCES CENTRO(id_centro)
+);
+GO
+
+CREATE TABLE LOTE (
+    id_lote INT IDENTITY(1,1) NOT NULL,
+    codigo_lote VARCHAR(30) NOT NULL,
+    fecha_creacion DATETIME2 NOT NULL CONSTRAINT DF_LOTE_FECHA DEFAULT SYSUTCDATETIME(),
+    id_solicitud INT NOT NULL,
+    CONSTRAINT PK_LOTE PRIMARY KEY (id_lote),
+    CONSTRAINT UQ_LOTE_CODIGO UNIQUE (codigo_lote),
+    CONSTRAINT FK_LOTE_SOLICITUD FOREIGN KEY (id_solicitud) 
+        REFERENCES SOLICITUD(id_solicitud)
+);
+GO
+
+CREATE TABLE DISPOSITIVO (
+    id_dispositivo INT IDENTITY(1,1) NOT NULL,
+    num_serie VARCHAR(60) NOT NULL,
+    marca VARCHAR(50) NOT NULL,
+    modelo VARCHAR(60) NOT NULL,
+    id_categoria INT NOT NULL,
+    id_lote INT NOT NULL,
+    CONSTRAINT PK_DISPOSITIVO PRIMARY KEY (id_dispositivo),
+    CONSTRAINT UQ_DISPOSITIVO_SERIE UNIQUE (num_serie),
+    CONSTRAINT FK_DISPOSITIVO_CATEGORIA FOREIGN KEY (id_categoria) 
+        REFERENCES CATEGORIA(id_categoria),
+    CONSTRAINT FK_DISPOSITIVO_LOTE FOREIGN KEY (id_lote) 
+        REFERENCES LOTE(id_lote)
+);
+GO
+
+CREATE TABLE EVALUACION_TECNICA (
+    id_evaluacion INT IDENTITY(1,1) NOT NULL,
+    fecha_evaluacion DATETIME2 NOT NULL CONSTRAINT DF_EVAL_FECHA DEFAULT SYSUTCDATETIME(),
+    diagnostico VARCHAR(250) NOT NULL,
+    clasificacion_tecnica VARCHAR(40) NOT NULL,
+    id_dispositivo INT NOT NULL,
+    id_condicion INT NOT NULL,
+    id_usuario_evaluador INT NOT NULL,
+    CONSTRAINT PK_EVALUACION_TECNICA PRIMARY KEY (id_evaluacion),
+    CONSTRAINT UQ_EVAL_DISPOSITIVO UNIQUE (id_dispositivo),
+    CONSTRAINT CK_EVAL_CLASIFICACION CHECK (clasificacion_tecnica IN ('Reutilizacion', 'Reacondicionamiento', 'Reciclaje', 'Disposicion Final')),
+    CONSTRAINT FK_EVAL_DISPOSITIVO FOREIGN KEY (id_dispositivo) 
+        REFERENCES DISPOSITIVO(id_dispositivo),
+    CONSTRAINT FK_EVAL_CONDICION FOREIGN KEY (id_condicion) 
+        REFERENCES CONDICION(id_condicion),
+    CONSTRAINT FK_EVAL_USUARIO FOREIGN KEY (id_usuario_evaluador) 
+        REFERENCES USUARIO(id_usuario)
+);
+GO
+
+CREATE TABLE ESTADO_CATALOGO (
+    id_estado INT IDENTITY(1,1) NOT NULL,
+    nombre_estado VARCHAR(40) NOT NULL,
+    CONSTRAINT PK_ESTADO_CATALOGO PRIMARY KEY (id_estado),
+    CONSTRAINT UQ_ESTADO_CATALOGO_NOMBRE UNIQUE (nombre_estado)
+);
+GO
+
+CREATE TABLE HISTORIAL_ESTADOS (
+    id_dispositivo INT NOT NULL,
+    id_secuencia INT NOT NULL,
+    id_estado INT NOT NULL,
+    fecha_cambio DATETIME2 NOT NULL CONSTRAINT DF_HIST_FECHA DEFAULT SYSUTCDATETIME(),
+    observacion VARCHAR(250) NULL,
+    CONSTRAINT PK_HISTORIAL_ESTADOS PRIMARY KEY (id_dispositivo, id_secuencia),
+    CONSTRAINT CK_HISTORIAL_SECUENCIA CHECK (id_secuencia > 0),
+    CONSTRAINT FK_HISTORIAL_DISPOSITIVO FOREIGN KEY (id_dispositivo) 
+        REFERENCES DISPOSITIVO(id_dispositivo) ON DELETE CASCADE,
+    CONSTRAINT FK_HISTORIAL_ESTADO FOREIGN KEY (id_estado) 
+        REFERENCES ESTADO_CATALOGO(id_estado)
+);
+GO
+
+CREATE TABLE TRANSFERENCIA_MOVIMIENTO (
+    num_movimiento INT IDENTITY(1,1) NOT NULL,
+    fecha_movimiento DATETIME2 NOT NULL CONSTRAINT DF_MOV_FECHA DEFAULT SYSUTCDATETIME(),
+    estado_transferencia VARCHAR(30) NOT NULL,
+    id_centro_origen INT NOT NULL,
+    id_centro_destino INT NOT NULL,
+    id_dispositivo INT NOT NULL,
+    CONSTRAINT PK_TRANSFERENCIA_MOVIMIENTO PRIMARY KEY (num_movimiento),
+    CONSTRAINT CK_MOV_ESTADO CHECK (estado_transferencia IN ('En Transito', 'Entregado', 'Cancelado')),
+    CONSTRAINT CK_MOV_CENTROS_DISTINTOS CHECK (id_centro_origen <> id_centro_destino),
+    CONSTRAINT FK_MOV_ORIGEN FOREIGN KEY (id_centro_origen) 
+        REFERENCES CENTRO(id_centro),
+    CONSTRAINT FK_MOV_DESTINO FOREIGN KEY (id_centro_destino) 
+        REFERENCES CENTRO(id_centro),
+    CONSTRAINT FK_MOV_DISPOSITIVO FOREIGN KEY (id_dispositivo) 
+        REFERENCES DISPOSITIVO(id_dispositivo)
+);
+GO
+
+CREATE TABLE TRATAMIENTO (
+    id_tratamiento INT IDENTITY(1,1) NOT NULL,
+    resultado VARCHAR(100) NOT NULL,
+    destino VARCHAR(100) NOT NULL,
+    fecha_cierre DATETIME2 NOT NULL CONSTRAINT DF_TRAT_FECHA DEFAULT SYSUTCDATETIME(),
+    id_dispositivo INT NOT NULL,
+    CONSTRAINT PK_TRATAMIENTO PRIMARY KEY (id_tratamiento),
+    CONSTRAINT UQ_TRATAMIENTO_DISPOSITIVO UNIQUE (id_dispositivo),
+    CONSTRAINT FK_TRATAMIENTO_DISPOSITIVO FOREIGN KEY (id_dispositivo) 
+        REFERENCES DISPOSITIVO(id_dispositivo)
+);
+GO
+
+CREATE TABLE EVIDENCIA (
+    id_evidencia INT IDENTITY(1,1) NOT NULL,
+    tipo_archivo VARCHAR(30) NOT NULL,
+    url_archivo VARCHAR(255) NOT NULL,
+    id_tratamiento INT NOT NULL,
+    CONSTRAINT PK_EVIDENCIA PRIMARY KEY (id_evidencia),
+    CONSTRAINT CK_EVIDENCIA_TIPO CHECK (tipo_archivo IN ('PDF', 'JPG', 'PNG', 'DOCX')),
+    CONSTRAINT FK_EVIDENCIA_TRATAMIENTO FOREIGN KEY (id_tratamiento) 
+        REFERENCES TRATAMIENTO(id_tratamiento)
+);
+GO
+
+CREATE TABLE INVENTARIO (
+    id_inventario INT IDENTITY(1,1) NOT NULL,
+    stock_actual INT NOT NULL CONSTRAINT DF_INV_STOCK DEFAULT 0,
+    fecha_actualizacion DATETIME2 NOT NULL CONSTRAINT DF_INV_FECHA DEFAULT SYSUTCDATETIME(),
+    id_centro INT NOT NULL,
+    id_categoria INT NOT NULL,
+    CONSTRAINT PK_INVENTARIO PRIMARY KEY (id_inventario),
+    CONSTRAINT CK_INVENTARIO_STOCK CHECK (stock_actual >= 0),
+    CONSTRAINT UQ_INVENTARIO_CENTRO_CAT UNIQUE (id_centro, id_categoria),
+    CONSTRAINT FK_INVENTARIO_CENTRO FOREIGN KEY (id_centro) 
+        REFERENCES CENTRO(id_centro),
+    CONSTRAINT FK_INVENTARIO_CATEGORIA FOREIGN KEY (id_categoria) 
+        REFERENCES CATEGORIA(id_categoria)
+);
+GO
+
+CREATE TABLE NODO (
+    id_nodo INT IDENTITY(1,1) NOT NULL,
+    tipo_nodo VARCHAR(50) NOT NULL,
+    capacidad_nodo DECIMAL(10,2) NOT NULL,
+    CONSTRAINT PK_NODO PRIMARY KEY (id_nodo),
+    CONSTRAINT CK_NODO_CAPACIDAD CHECK (capacidad_nodo > 0)
+);
+GO
+
+CREATE TABLE ARISTA (
+    id_arista INT IDENTITY(1,1) NOT NULL,
+    distancia_km DECIMAL(8,2) NOT NULL,
+    tiempo_estimado_min INT NOT NULL,
+    id_nodo_origen INT NOT NULL,
+    id_nodo_destino INT NOT NULL,
+    CONSTRAINT PK_ARISTA PRIMARY KEY (id_arista),
+    CONSTRAINT CK_ARISTA_DISTANCIA CHECK (distancia_km > 0),
+    CONSTRAINT CK_ARISTA_TIEMPO CHECK (tiempo_estimado_min > 0),
+    CONSTRAINT CK_ARISTA_NODOS_DISTINTOS CHECK (id_nodo_origen <> id_nodo_destino),
+    CONSTRAINT FK_ARISTA_ORIGEN FOREIGN KEY (id_nodo_origen) 
+        REFERENCES NODO(id_nodo),
+    CONSTRAINT FK_ARISTA_DESTINO FOREIGN KEY (id_nodo_destino) 
+        REFERENCES NODO(id_nodo)
+);
+GO
+
+CREATE TABLE ESCENARIO (
+    id_escenario INT IDENTITY(1,1) NOT NULL,
+    codigo_escenario VARCHAR(30) NOT NULL,
+    resultado VARCHAR(150) NOT NULL,
+    CONSTRAINT PK_ESCENARIO PRIMARY KEY (id_escenario),
+    CONSTRAINT UQ_ESCENARIO_CODIGO UNIQUE (codigo_escenario)
+);
+GO
+
+CREATE TABLE INDICADOR (
+    id_indicador INT IDENTITY(1,1) NOT NULL,
+    nombre_indicador VARCHAR(100) NOT NULL,
+    valor_meta DECIMAL(12,2) NOT NULL,
+    valor_actual DECIMAL(12,2) NOT NULL,
+    periodo VARCHAR(20) NOT NULL,
+    id_escenario INT NOT NULL,
+    CONSTRAINT PK_INDICADOR PRIMARY KEY (id_indicador),
+    CONSTRAINT FK_INDICADOR_ESCENARIO FOREIGN KEY (id_escenario) 
+        REFERENCES ESCENARIO(id_escenario)
+);
+GO
+
+CREATE TABLE ALERTA (
+    id_alerta INT IDENTITY(1,1) NOT NULL,
+    fecha_generacion DATETIME2 NOT NULL CONSTRAINT DF_ALERTA_FECHA DEFAULT SYSUTCDATETIME(),
+    nivel_criticidad VARCHAR(20) NOT NULL,
+    mensaje VARCHAR(250) NOT NULL,
+    estado_alerta VARCHAR(30) NOT NULL CONSTRAINT DF_ALERTA_ESTADO DEFAULT 'Activa',
+    id_centro INT NOT NULL,
+    CONSTRAINT PK_ALERTA PRIMARY KEY (id_alerta),
+    CONSTRAINT CK_ALERTA_CRITICIDAD CHECK (nivel_criticidad IN ('Baja', 'Media', 'Alta', 'Critica')),
+    CONSTRAINT CK_ALERTA_ESTADO CHECK (estado_alerta IN ('Activa', 'En Atencion', 'Resuelta')),
+    CONSTRAINT FK_ALERTA_CENTRO FOREIGN KEY (id_centro) 
+        REFERENCES CENTRO(id_centro)
+);
+GO
+
+CREATE TABLE AUDITORIA (
+    id_auditoria INT IDENTITY(1,1) NOT NULL,
+    fecha_accion DATETIME2 NOT NULL CONSTRAINT DF_AUD_FECHA DEFAULT SYSUTCDATETIME(),
+    tabla_afectada VARCHAR(60) NOT NULL,
+    tipo_operacion VARCHAR(20) NOT NULL,
+    detalle VARCHAR(MAX) NOT NULL,
+    id_usuario INT NOT NULL,
+    CONSTRAINT PK_AUDITORIA PRIMARY KEY (id_auditoria),
+    CONSTRAINT CK_AUD_OPERACION CHECK (tipo_operacion IN ('INSERT', 'UPDATE', 'DELETE')),
+    CONSTRAINT FK_AUDITORIA_USUARIO FOREIGN KEY (id_usuario) 
+        REFERENCES USUARIO(id_usuario)
+);
+GO

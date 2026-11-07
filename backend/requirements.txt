@@ -1,0 +1,7 @@
+sqlmodel
+fastapi[standard]
+pyodbc
+python-dotenv
+boto3
+python-multipart
+
